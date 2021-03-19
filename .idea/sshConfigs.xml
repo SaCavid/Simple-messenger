@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig host="188.166.34.42" id="4b4b2a58-9df0-4357-bbd8-bfd53cfde676" keyPath="C:\Users\Cavid\Documents\private.ppk" port="22" nameFormat="DESCRIPTIVE" username="root" />
+    </configs>
+  </component>
+</project>

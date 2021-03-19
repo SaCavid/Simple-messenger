@@ -1,0 +1,172 @@
+{{define "content"}}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test app</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+          integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
+          integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN"
+          crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css">
+
+</head>
+<body>
+
+<div class="container">
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Chat app</h5>
+        </div>
+        <div class="card-body">
+            <div class="card-title">
+                <h5>Another header</h5>
+            </div>
+
+            <div class="row login">
+                <div class="col-md-4">
+
+                    <div class="form-group">
+                        <label for="usernameInput">Username </label>
+                        <input type="text" class="form-control" id="usernameInput" aria-describedby="usernameHelp" placeholder="Enter Username">
+                        <small id="usernameHelp" class="form-text text-muted">Simple information for identification.</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary" onclick="WebSocketTest()">Connect to websocket</button>
+                </div>
+            </div>
+            <div class="row chat">
+                <div class="col-md-3">
+                    <ul class="list-group">
+                        <li class="list-group-item">Cras justo odio</li>
+                        <li class="list-group-item">Dapibus ac facilisis in</li>
+                        <li class="list-group-item">Morbi leo risus</li>
+                        <li class="list-group-item">Porta ac consectetur ac</li>
+                        <li class="list-group-item">Vestibulum at eros</li>
+                    </ul>
+                </div>
+                <div class="col-md-9 messages">
+                    <div class="card">
+                        <div class="card-header">
+                        <h5>Username</h5>
+                    </div>
+
+                        <div id="messages" class="card-body" style="height: 300px; overflow-y: scroll">
+
+                            <div class="message">
+                                <span>Hi there</span>
+                            </div>
+                            <div class="message float-right">
+                                <span>Hi</span>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <div class="input-group mb-3">
+                                <input id="message" type="text" class="form-control" placeholder="Enter message" aria-label="Enter message" aria-describedby="basic-addon2">
+                                <div class="input-group-append">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"
+        integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+        integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
+<script>
+    let Username ="";
+    let Receiver = "";
+
+    $(".login").hide();
+
+    function sendMessage(){
+        let message = $("#message").val();
+        if (message === ""){
+            Notification("warning", "No message input")
+            return
+        }
+        Notification("info",Username + message)
+        $("#messages").append(`</br><div class="message float-right"><span>`+message+`</span></div>`)
+        $('#messages ').animate({
+            scrollTop: $('#messages .message:last-child').position().top
+        }, 'slow');
+        $("#message").val("")
+    }
+
+    function WebSocketTest() {
+
+        if ("WebSocket" in window) {
+            console.log("WebSocket is supported by your Browser!");
+
+            let username = $("#usernameInput").val()
+
+            if (username === ""){
+                Notification("error","Username cant be null. Please fill username input!")
+                return
+            }
+            Username = username
+            // Let us open a web socket
+            let ws = new WebSocket("ws://localhost:80/ws");
+
+            ws.onopen = function () {
+                $(".login").hide();
+                $(".chat").show();
+
+                // Web Socket is connected, send data using send()
+                Notification("success","Connected to websocket")
+            };
+
+            ws.onmessage = function (e) {
+
+            };
+
+            ws.onclose = function () {
+
+            };
+
+            ws.onerror = function () {
+
+            };
+
+        } else {
+
+            // The browser doesn't support WebSocket
+            console.log("WebSocket NOT supported by your Browser!");
+        }
+    }
+
+    function Notification(s, msg){
+        toastr[s](msg)
+
+        toastr.options = {
+            "closeButton": false,
+            "debug": false,
+            "newestOnTop": true,
+            "progressBar": true,
+            "positionClass": "toast-top-right",
+            "preventDuplicates": true,
+            "onclick": null,
+            "showDuration": "300",
+            "hideDuration": "1000",
+            "timeOut": "5000",
+            "extendedTimeOut": "1000",
+            "showEasing": "swing",
+            "hideEasing": "linear",
+            "showMethod": "fadeIn",
+            "hideMethod": "fadeOut"
+        }
+    }
+</script>
+</body>
+</html>
+{{end}}
