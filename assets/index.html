@@ -114,7 +114,17 @@
                 Notification("error","Username cant be null. Please fill username input!")
                 return
             }
+
+
             Username = username
+
+            // for simple login process
+            let openingMessage = {
+                "From":Username,
+                "To":Username,
+                "Data":"",
+            }
+
             // Let us open a web socket
             let ws = new WebSocket("ws://localhost:80/ws");
 
@@ -124,6 +134,8 @@
 
                 // Web Socket is connected, send data using send()
                 Notification("success","Connected to websocket")
+                openingMessage = JSON.stringify(openingMessage)
+                ws.send(openingMessage)
             };
 
             ws.onmessage = function (e) {
