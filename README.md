@@ -26,7 +26,7 @@ As communication protocol Json object have been used:
     3. Can be send message to all users in list .
     4. If new user connected to network check in message will be send to all users with users updated list (Overload server if there will be many connections)
     
-###Have been used Golang:
+### Have been used Golang:
     1. Interfaces
     2. Methods
     3. Channels
@@ -34,7 +34,7 @@ As communication protocol Json object have been used:
 
 At the moment all users in a tcp, tls and http (websocket) can see and message each other.
 
-#Feature
+# Feature
     1. Login system must be improved
     2. Database support must be added. Will be enough Postgres and Redis.
     3. Protocols must be improved for better network traffic and speed.
