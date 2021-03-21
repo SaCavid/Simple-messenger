@@ -48,7 +48,8 @@ func Monitor(srv *service.Server) {
 	var r runtime.MemStats
 	for {
 		runtime.ReadMemStats(&r)
-		time.Sleep(1 * time.Second)
-		log.Println("Number of goroutines:", runtime.NumGoroutine(), r.Mallocs-r.Frees, len(srv.Clients))
+
+		time.Sleep(3 * time.Second) // r.Mallocs-r.Frees,
+		log.Println("Number of goroutines:", runtime.NumGoroutine(), "Connected users:", len(srv.Clients), "Send messages:", srv.SendMessages, "Received Messages:", srv.ReceivedMessages, "Lost packages: ", srv.SendMessages-srv.ReceivedMessages)
 	}
 }

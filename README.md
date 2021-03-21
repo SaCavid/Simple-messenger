@@ -43,3 +43,32 @@ At the moment all users in a tcp, tls and http (websocket) can see and message e
         (mostly after restart of server)
     5. Channels can cach only 8 messages at moment. Must be improved with database support.
     6. Security must be improved between ports.
+
+### Tested
+    # Tested for 15-20 minutes. used RAM 0.8 - 1.1 Gb. All users connected Tls server. 
+    Every user sended message every 1 second to randomly selected user. 
+    Every second sended 10k * 10k messages
+
+    example message = {
+        "From":"tlsUser10000",  
+        "To":"tlsUser9999", 
+        "Data":"Looking for new solution",
+        "Status":false,
+        "Users":""
+    }
+    
+    # Machine specifications
+        Windows 10 Pro
+        Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz   3.60 GHz
+        64-bit operating system, x64-based processor
+        RAM 16.0 GB
+        
+        
+    # Result 
+    1. Number of goroutines: 40004
+    2. Connected users: 10000
+    3. Send messages: 8390600
+    4. Received Messages: 8380277
+    5. Lost packages:  10323 (under 0.1% - Mostly not correct timing calculation difference)
+
+### Used Resources

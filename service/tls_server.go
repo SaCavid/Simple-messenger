@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -20,11 +23,13 @@ var upGrader = websocket.Upgrader{
 }
 
 type Server struct {
-	Port       int
-	Mu         sync.Mutex
-	LoginChan  chan *User
-	LogoutChan chan string
-	Clients    map[string]chan models.Message
+	Port             int
+	Mu               sync.Mutex
+	LoginChan        chan *User
+	LogoutChan       chan string
+	Clients          map[string]chan models.Message
+	SendMessages     uint64
+	ReceivedMessages uint64
 }
 
 type User struct {
@@ -62,10 +67,14 @@ func (srv *Server) TlsServer(addr string) {
 	log.Println("started server on ", addr, ", lens of certificates", len(configServer.Certificates))
 
 	go func() {
+		ma, err := strconv.ParseUint(os.Getenv("FAKEUSERS"), 10, 64)
+		if err != nil {
+			ma = 1000
+		}
 
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < int(ma); i++ {
 			time.Sleep(500 * time.Microsecond)
-			go ClientWithTls(addr, csr, i)
+			go srv.ClientWithTls(addr, csr, i)
 		}
 
 	}()
@@ -292,7 +301,7 @@ func (srv *Server) OnlineCheckUp() {
 	//srv.Mu.Unlock()
 }
 
-func ClientWithTls(addr string, rootCert string, i int) {
+func (srv *Server) ClientWithTls(addr string, rootCert string, i int) {
 
 	roots := x509.NewCertPool()
 	ok := roots.AppendCertsFromPEM([]byte(rootCert))
@@ -329,9 +338,12 @@ func ClientWithTls(addr string, rootCert string, i int) {
 		if err != nil {
 			log.Println(err)
 		}
+
+		log.Println("finished tls client")
 	}()
 
-	receiver := "WsUser" // generate random receiver
+	// receiver := "WsUser" // generate random receiver
+
 	go func() {
 		for {
 			m := models.Message{}
@@ -342,14 +354,25 @@ func ClientWithTls(addr string, rootCert string, i int) {
 				log.Println(err)
 				return
 			}
+			srv.ReceivedMessages++
 		}
 	}()
 
 	for {
 
+		rand.Seed(time.Now().UnixNano())
+		min := 0
+		ma, err := strconv.ParseUint(os.Getenv("FAKEUSERS"), 10, 64)
+		if err != nil {
+			ma = 1000
+		}
+
+		max := ma
+		l := rand.Intn(int(max)-min+1) + min
+
 		m := models.Message{
 			From: fmt.Sprintf("tcpUser%d", i),
-			To:   receiver,
+			To:   fmt.Sprintf("tcpUser%d", l),
 			Data: "Looking for new solution",
 		}
 
@@ -369,10 +392,9 @@ func ClientWithTls(addr string, rootCert string, i int) {
 			break
 		}
 
-		time.Sleep(3 * time.Second)
+		srv.SendMessages++
+		time.Sleep(1 * time.Second)
 	}
-
-	log.Println("finished tls client")
 }
 
 const csr = `-----BEGIN CERTIFICATE-----

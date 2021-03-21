@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 )
 
@@ -13,6 +14,7 @@ func Route(srv *service.Server) {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", Chat)
+	r.HandleFunc("/profile", pprof.Profile)
 	r.HandleFunc("/ws", srv.WsReceiver)
 
 	http.Handle("/", r)

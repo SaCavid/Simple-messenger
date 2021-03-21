@@ -1,0 +1,222 @@
+package main
+
+import (
+	"./models"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"fmt"
+	"github.com/joho/godotenv"
+	"log"
+	"math/rand"
+	"net"
+	"os"
+	"strconv"
+	"testing"
+	"time"
+)
+
+var (
+	Addr = "2500"
+)
+
+func TestTcp(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+
+	err := godotenv.Load(".env")
+	if err != nil {
+		// unable to connect to database. Quit app
+		log.Fatal("Failed to load env! ", err)
+	}
+
+	ma, err := strconv.ParseUint(os.Getenv("FAKEUSERS"), 10, 64)
+	if err != nil {
+		ma = 1000
+	}
+
+	for i := 0; i < int(ma); i++ {
+		time.Sleep(1000 * time.Microsecond)
+		//go ClientWithTls(Addr, csr, i)
+		go ClientNoTls(Addr, i)
+	}
+
+	for {
+		time.Sleep(1 * time.Second)
+		t.Error("controller")
+	}
+}
+
+func ClientNoTls(addr string, i int) {
+
+	time.Sleep(5 * time.Second)
+	conn, err := net.Dial("tcp", ":"+addr)
+	if err != nil {
+		log.Println(err.Error(), " ", i)
+		return
+	}
+
+	defer func() {
+		err = conn.Close()
+		if err != nil {
+			log.Println(err)
+		}
+		log.Println("finished tls client")
+	}()
+
+	go func() {
+		for {
+			m := models.Message{}
+			d := json.NewDecoder(conn)
+
+			err := d.Decode(&m)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+		}
+	}()
+
+	for {
+
+		m := models.Message{
+			From: fmt.Sprintf("tcpUser%d", i),
+			To:   fmt.Sprintf("tcpUser%d", 1),
+			Data: "Looking for new solution",
+		}
+
+		if m.From == m.To {
+			continue
+		}
+
+		d, err := json.Marshal(m)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+
+		_, err = conn.Write(d)
+		if err != nil {
+			log.Println(err.Error())
+			break
+		}
+
+		time.Sleep(3 * time.Second)
+	}
+
+}
+
+func ClientWithTls(addr string, rootCert string, i int) {
+
+	time.Sleep(3 * time.Second)
+	roots := x509.NewCertPool()
+	ok := roots.AppendCertsFromPEM([]byte(rootCert))
+	if !ok {
+		log.Fatal("failed to parse root certificate")
+	}
+
+	config := &tls.Config{RootCAs: roots, ServerName: "home.com"}
+
+	conn, err := tls.Dial("tcp", ":"+addr, config)
+	if err != nil {
+		log.Println(err.Error(), " ", i)
+		return
+	}
+
+	m := models.NewMessage(fmt.Sprintf("tcpUser%d", i), fmt.Sprintf("tcpUser%d", i), "Looking for new solution", nil)
+
+	d, err := json.Marshal(m)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	_, err = conn.Write(d)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	defer func() {
+
+		err = conn.Close()
+		if err != nil {
+			log.Println(err)
+		}
+
+		log.Println("finished tls client")
+	}()
+
+	go func() {
+		for {
+			m := models.Message{}
+			d := json.NewDecoder(conn)
+
+			err := d.Decode(&m)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}
+	}()
+
+	for {
+
+		rand.Seed(time.Now().UnixNano())
+		min := 0
+		ma, err := strconv.ParseUint(os.Getenv("FAKEUSERS"), 10, 64)
+		if err != nil {
+			ma = 1000
+		}
+
+		max := ma
+		l := rand.Intn(int(max)-min+1) + min
+
+		m := models.Message{
+			From: fmt.Sprintf("tcpUser%d", i),
+			To:   fmt.Sprintf("tcpUser%d", l),
+			Data: "Looking for new solution",
+		}
+
+		if m.From == m.To {
+			continue
+		}
+
+		d, err := json.Marshal(m)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+
+		_, err = conn.Write(d)
+		if err != nil {
+			log.Println(err.Error())
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+}
+
+const csr = `-----BEGIN CERTIFICATE-----
+MIIDnzCCAoegAwIBAgIUY/e9t5IORtG8dF84YOMwI5dTm5kwDQYJKoZIhvcNAQEL
+BQAwQzERMA8GA1UEAwwIaG9tZS5jb20xCzAJBgNVBAYTAkFaMRIwEAYDVQQIDAlC
+YWt1IENpdHkxDTALBgNVBAcMBEJha3UwHhcNMjEwMzIwMDgwOTQ4WhcNMjIwMzIw
+MDgwOTQ4WjBDMREwDwYDVQQDDAhob21lLmNvbTELMAkGA1UEBhMCQVoxEjAQBgNV
+BAgMCUJha3UgQ2l0eTENMAsGA1UEBwwEQmFrdTCCASIwDQYJKoZIhvcNAQEBBQAD
+ggEPADCCAQoCggEBALryxrIFFYiqoj+bccmwZPxSNfbhzfudDtUOSYkrly/JoSYD
+aq9gIaYAqaL9dQuZ82JMo3o6WdYSR+i/mm9k5kxBT+2Sl4IK1aYLMeUuZx8LmF9Q
+G4rr3fHpOrQz1XjkpeXB4912iLx/n7i5NkW7O5bQBtCwFG0pWAO+bXM+NI/4J1dI
+4XollMIthcQQsA9GM4bLSoNY0AOetMSoiPch00SdQy9l/Y1kLVOB2w6KveoD1HNg
+TMXrHf0bgiOsMycstwYLg7igvuCgbfBEKkPKZB63bd1r1LGdpsUE7Hqjzi29E6AC
+etba6Zk6AiPQ/sVqQ+xCIPIVzxAMeHSXVCBWux0CAwEAAaOBijCBhzAdBgNVHQ4E
+FgQUfyDIhtLrpOCgI3QJBpGI2PJhD2kwHwYDVR0jBBgwFoAUfyDIhtLrpOCgI3QJ
+BpGI2PJhD2kwDgYDVR0PAQH/BAQDAgWgMCAGA1UdJQEB/wQWMBQGCCsGAQUFBwMB
+BggrBgEFBQcDAjATBgNVHREEDDAKgghob21lLmNvbTANBgkqhkiG9w0BAQsFAAOC
+AQEAsKmSNXPR64DTblGzqGhl+i4HVhnyhrFnxD0UOjddjpTVU4OxpmYafw8PcPdq
+HLA5A2oBe0EPuI+roTF72uKqDMCKaQBXkQClHGkv4q7GHphHjEq0q9J607nlIUG9
+5wwzbQ1FdVSacmGbn6m3hJc34CHe7geGi6J6bQdUKCuWN34Rb6yo3N1ALXAsY5MJ
+ymo97fEdA865o+RzRX+x7FRFbhgshWi44Op/lcQ4JnHbiYtdEcdcuc2o3OgTS/A1
+BiPfJybf+9psSqP064MwHCowHB58KQRWU2OU9bglpE63lMKTqJrehx8A62tWZM7e
+tQPHNZvKjAl02Sv4cUrgJP2IeQ==
+-----END CERTIFICATE-----`
