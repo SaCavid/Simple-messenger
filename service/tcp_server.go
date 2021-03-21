@@ -11,7 +11,8 @@ import (
 
 func (srv *Server) TcpServer(addr string) {
 
-	l, err := net.Listen("tcp", "localhost:"+addr)
+	srv.GoRoutines++
+	l, err := net.Listen("tcp", ":"+addr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,14 +34,14 @@ func (srv *Server) TcpServer(addr string) {
 			log.Fatal(err)
 		}
 
-		go Receiver(srv, conn)
+		go srv.Receiver(conn)
 	}
 }
 
 func ClientNoTls(addr string, i int) {
 
 	time.Sleep(5 * time.Second)
-	conn, err := net.Dial("tcp", "localhost:"+addr)
+	conn, err := net.Dial("tcp", ":"+addr)
 	if err != nil {
 		log.Println(err.Error(), " ", i)
 		return
@@ -78,7 +79,7 @@ func ClientNoTls(addr string, i int) {
 				log.Println(err)
 				return
 			}
-			log.Println("User: ", fmt.Sprintf("tcpUser%d", i), "Message from user:", m.From, "Data: ", m.Data)
+			log.Println(m)
 		}
 	}()
 

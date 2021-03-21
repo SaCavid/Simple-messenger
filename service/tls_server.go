@@ -22,13 +22,15 @@ var (
 )
 
 type Server struct {
-	Port    int
-	Mu      sync.Mutex
-	Clients map[string]net.Conn
+	Port       int
+	Mu         sync.Mutex
+	Clients    map[string]chan models.Message
+	GoRoutines int
 }
 
 func (srv *Server) TlsServer(addr string) {
 
+	srv.GoRoutines++
 	cer, err := tls.X509KeyPair([]byte(csr), []byte(privateKey))
 	if err != nil {
 		log.Fatal(err)
@@ -42,7 +44,7 @@ func (srv *Server) TlsServer(addr string) {
 	configServer := &tls.Config{Certificates: []tls.Certificate{cer}, ServerName: "Test"}
 	configServer.Certificates = append(configServer.Certificates, cer2)
 
-	l, err := tls.Listen("tcp", "localhost:"+addr, configServer)
+	l, err := tls.Listen("tcp", ":"+addr, configServer)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,15 +67,20 @@ func (srv *Server) TlsServer(addr string) {
 			log.Fatal(err)
 		}
 
-		go Receiver(srv, conn)
+		go srv.Receiver(conn)
 	}
 }
 
-func Receiver(srv *Server, conn net.Conn) {
+func (srv *Server) Receiver(conn net.Conn) {
 
-	c := make(chan models.Message)
+	srv.GoRoutines++
+	defer func() {
 
-	go Transmitter(srv, c)
+		srv.GoRoutines--
+	}()
+	c := make(chan models.Message, 8)
+
+	go srv.Transmitter(conn, c)
 
 	logged := false
 	log.Println("receiver working", conn.RemoteAddr())
@@ -89,40 +96,132 @@ func Receiver(srv *Server, conn net.Conn) {
 				log.Println(err)
 			}
 
+			delete(srv.Clients, m.From)
+			srv.OnlineCheckUp()
 			return
 		}
 
 		err = m.ValidateMessage()
 		if err != nil {
 			log.Println(err)
-
-			err := conn.Close()
-			if err != nil {
-				log.Println(err)
-			}
-
-			return
+			continue
 		}
 
 		if !logged {
 			srv.Mu.Lock()
-			srv.Clients[m.From] = conn
+
+			if srv.Clients[m.From] != nil {
+				delete(srv.Clients, m.From)
+			}
+
+			srv.Clients[m.From] = c
 			srv.Mu.Unlock()
 			logged = true
+			srv.OnlineCheckUp()
 		} else {
-			c <- m
+			srv.Mu.Lock()
+
+			receiver := srv.Clients[m.To]
+			srv.Mu.Unlock()
+			if receiver != nil {
+				receiver <- m
+			}
 		}
 	}
 }
 
-func Transmitter(srv *Server, c chan models.Message) {
+func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
+
+	srv.GoRoutines++
+	wsConn, err := upGrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	var user string
+	defer func() {
+
+		log.Println("Ws client logged out")
+		delete(srv.Clients, user)
+		srv.OnlineCheckUp()
+		wsConn.Close()
+
+		srv.GoRoutines--
+	}()
+
+	var logged bool
+
+	log.Println("Connected from ip address: ", wsConn.RemoteAddr().String())
+
+	c := make(chan models.Message, 8)
+
+	go srv.WsTransmitter(wsConn, c)
+
+	for {
+		m := models.Message{}
+		err := wsConn.ReadJSON(&m)
+		if err != nil {
+			log.Println(err)
+			err := wsConn.Close()
+			if err != nil {
+				log.Println(err)
+			}
+			delete(srv.Clients, m.From)
+			srv.OnlineCheckUp()
+			return
+		}
+
+		if !logged {
+			err := m.ValidateMessage()
+			if err != nil {
+				log.Println(err)
+				err := wsConn.WriteJSON(m)
+				if err != nil {
+					err := wsConn.Close()
+					if err != nil {
+						log.Println(err)
+					}
+					delete(srv.Clients, m.From)
+					return
+				}
+				return
+			}
+
+			srv.Mu.Lock()
+			if srv.Clients[m.From] != nil {
+				delete(srv.Clients, m.From)
+			}
+
+			srv.Clients[m.From] = c
+			user = m.From
+			logged = true
+
+			srv.Mu.Unlock()
+			srv.OnlineCheckUp()
+
+		} else {
+			srv.Mu.Lock()
+
+			receiver := srv.Clients[m.To]
+			srv.Mu.Unlock()
+			if receiver != nil {
+				receiver <- m
+			}
+		}
+	}
+}
+
+func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
+
+	srv.GoRoutines++
+	defer func() {
+		srv.GoRoutines--
+	}()
 
 	for {
 		y := <-c
 
 		srv.Mu.Lock()
-		client := srv.Clients[y.To]
-
 		var usersOnline []string
 
 		for k, _ := range srv.Clients {
@@ -133,22 +232,77 @@ func Transmitter(srv *Server, c chan models.Message) {
 
 		srv.Mu.Unlock()
 
-		if client != nil {
-			d, err := json.Marshal(y)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			_, err = client.Write(d)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-		} else {
-			log.Println("User didnt connected")
+		d, err := json.Marshal(y)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		_, err = conn.Write(d)
+		if err != nil {
+			log.Println(err)
+			return
 		}
 	}
 
+}
+
+func (srv *Server) WsTransmitter(conn *websocket.Conn, c chan models.Message) {
+
+	srv.GoRoutines++
+	defer func() {
+		srv.GoRoutines--
+	}()
+
+	for {
+		y := <-c
+
+		srv.Mu.Lock()
+		var usersOnline []string
+
+		for k, _ := range srv.Clients {
+			usersOnline = append(usersOnline, k)
+		}
+
+		y.Users = usersOnline
+
+		srv.Mu.Unlock()
+
+		err := conn.WriteJSON(y)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+
+}
+
+func (srv *Server) OnlineCheckUp() {
+
+	srv.Mu.Lock()
+	if len(srv.Clients) > 0 {
+		y := models.Message{
+			From:   "",
+			To:     "",
+			Data:   "",
+			Users:  nil,
+			Status: false,
+		}
+
+		var usersOnline []string
+
+		for k, _ := range srv.Clients {
+			usersOnline = append(usersOnline, k)
+		}
+
+		y.Users = usersOnline
+
+		for _, v := range srv.Clients {
+			v <- y
+		}
+
+	}
+	srv.Mu.Unlock()
 }
 
 func ClientWithTls(addr string, rootCert string, i int) {
@@ -162,7 +316,7 @@ func ClientWithTls(addr string, rootCert string, i int) {
 	config := &tls.Config{RootCAs: roots, ServerName: "home.com"}
 
 	time.Sleep(5 * time.Second)
-	conn, err := tls.Dial("tcp", "localhost:"+addr, config)
+	conn, err := tls.Dial("tcp", ":"+addr, config)
 	if err != nil {
 		log.Println(err.Error(), " ", i)
 		return
@@ -201,7 +355,6 @@ func ClientWithTls(addr string, rootCert string, i int) {
 				log.Println(err)
 				return
 			}
-			log.Println("User: ", fmt.Sprintf("tcpUser%d", i), "Message from user:", m.From, "Data: ", m.Data)
 		}
 	}()
 
@@ -209,7 +362,7 @@ func ClientWithTls(addr string, rootCert string, i int) {
 
 		m := models.Message{
 			From: fmt.Sprintf("tcpUser%d", i),
-			To:   fmt.Sprintf("tcpUser%d", 1),
+			To:   fmt.Sprintf("WsUser"),
 			Data: "Looking for new solution",
 		}
 
@@ -233,43 +386,6 @@ func ClientWithTls(addr string, rootCert string, i int) {
 	}
 
 	log.Println("finished tls client")
-}
-
-func (srv *Server) Ws(w http.ResponseWriter, r *http.Request) {
-
-	wsConn, err := upGrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-	var logged bool
-
-	log.Println("Connected from ip address: ", wsConn.RemoteAddr().String())
-	m := models.Message{}
-	for {
-		err := wsConn.ReadJSON(m)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		if !logged {
-			err := m.ValidateMessage()
-			if err != nil {
-				err := wsConn.WriteJSON(m)
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				return
-			}
-
-		} else {
-
-		}
-
-		log.Println(m)
-	}
 }
 
 const csr = `-----BEGIN CERTIFICATE-----

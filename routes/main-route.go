@@ -13,7 +13,7 @@ func Route(srv *service.Server) {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", Chat)
-	r.HandleFunc("/ws", srv.Ws)
+	r.HandleFunc("/ws", srv.WsReceiver)
 
 	http.Handle("/", r)
 	httpPort := os.Getenv("HTTPPORT")

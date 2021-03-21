@@ -3,10 +3,11 @@ package models
 import "errors"
 
 type Message struct {
-	From  string
-	To    string
-	Data  string
-	Users []string
+	From   string
+	To     string
+	Data   string
+	Users  []string
+	Status bool // status of channel
 }
 
 func NewMessage(from, to, data string, users []string) *Message {
@@ -25,10 +26,6 @@ func (msg *Message) ValidateMessage() error {
 
 	if msg.To == "" {
 		return errors.New("receiver cant be null")
-	}
-
-	if msg.Data == "" {
-		return errors.New("data is null nothing to return")
 	}
 
 	return nil
