@@ -24,8 +24,8 @@ func (srv *Server) TcpServer(addr string) {
 	}()
 	log.Println("started server on " + addr)
 
-	go ClientNoTls(addr, 3)
-	go ClientNoTls(addr, 4)
+	//go ClientNoTls(addr, 3)
+	//go ClientNoTls(addr, 4)
 
 	for {
 		conn, err := l.Accept()

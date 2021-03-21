@@ -7,6 +7,9 @@ import (
 	"github.com/joho/godotenv"
 	"log"
 	"os"
+	"runtime"
+	"strconv"
+	"time"
 )
 
 func main() {
@@ -18,14 +21,34 @@ func main() {
 		// unable to connect to database. Quit app
 		log.Fatal("Failed to load env! ", err)
 	}
+	bufferSize := os.Getenv("DEFAULTBUFFER")
 
-	srv := &service.Server{
-		Port:    0,
-		Clients: make(map[string]chan models.Message, 0),
+	size, err := strconv.ParseUint(bufferSize, 10, 64)
+	if err != nil {
+		log.Println(err)
+		size = 1024
 	}
 
+	srv := &service.Server{
+		Port:       0,
+		LoginChan:  make(chan *service.User, size),
+		LogoutChan: make(chan string, size),
+		Clients:    make(map[string]chan models.Message, 0),
+	}
+
+	go srv.Connections()
 	go srv.TlsServer(os.Getenv("TLSPORT"))
 	go srv.TcpServer(os.Getenv("TCPPORT"))
 
+	go Monitor(srv)
 	routes.Route(srv)
+}
+
+func Monitor(srv *service.Server) {
+	var r runtime.MemStats
+	for {
+		runtime.ReadMemStats(&r)
+		time.Sleep(1 * time.Second)
+		log.Println("Number of goroutines:", runtime.NumGoroutine(), r.Mallocs-r.Frees, len(srv.Clients))
+	}
 }

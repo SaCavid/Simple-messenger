@@ -14,17 +14,22 @@ import (
 	"time"
 )
 
-var (
-	upGrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-	}
-)
+var upGrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
 
 type Server struct {
-	Port    int
-	Mu      sync.Mutex
-	Clients map[string]chan models.Message
+	Port       int
+	Mu         sync.Mutex
+	LoginChan  chan *User
+	LogoutChan chan string
+	Clients    map[string]chan models.Message
+}
+
+type User struct {
+	Name    string
+	Channel chan models.Message
 }
 
 func (srv *Server) TlsServer(addr string) {
@@ -56,8 +61,14 @@ func (srv *Server) TlsServer(addr string) {
 
 	log.Println("started server on ", addr, ", lens of certificates", len(configServer.Certificates))
 
-	go ClientWithTls(addr, csr, 1)
-	go ClientWithTls(addr, csr, 2)
+	go func() {
+
+		for i := 0; i < 10000; i++ {
+			time.Sleep(500 * time.Microsecond)
+			go ClientWithTls(addr, csr, i)
+		}
+
+	}()
 
 	for {
 		conn, err := l.Accept()
@@ -78,15 +89,12 @@ func (srv *Server) Receiver(conn net.Conn) {
 
 	defer func() {
 
-		m := models.Message{}
+		err := conn.Close()
+		if err != nil {
+			log.Println(err)
+		}
 
-		m.From = user
-		m.Status = true
-		c <- m
-		srv.Mu.Lock()
-		delete(srv.Clients, user)
-		srv.Mu.Unlock()
-
+		srv.Logout(user)
 	}()
 
 	go srv.Transmitter(conn, c)
@@ -102,7 +110,6 @@ func (srv *Server) Receiver(conn net.Conn) {
 			if err != nil {
 				log.Println(err)
 			}
-			srv.OnlineCheckUp()
 			return
 		}
 
@@ -113,30 +120,25 @@ func (srv *Server) Receiver(conn net.Conn) {
 		}
 
 		if !logged {
-			srv.Mu.Lock()
-
-			if srv.Clients[m.From] != nil {
-				delete(srv.Clients, m.From)
-			}
-
-			srv.Clients[m.From] = c
-			srv.Mu.Unlock()
 			logged = true
 			user = m.From
-			srv.OnlineCheckUp()
+			srv.Login(user, c)
 		} else {
 			srv.Mu.Lock()
 
 			receiver := srv.Clients[m.To]
-			srv.Mu.Unlock()
 			if receiver != nil {
 				receiver <- m
 			}
+			srv.Mu.Unlock()
 		}
 	}
 }
 
 func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
+
+	var user string
+	var logged bool
 
 	wsConn, err := upGrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -146,27 +148,14 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 
 	c := make(chan models.Message, 8)
 
-	var user string
-
 	defer func() {
 
-		log.Println("Ws client logged out")
-
-		srv.Mu.Lock()
-		delete(srv.Clients, user)
-		srv.Mu.Unlock()
-		srv.OnlineCheckUp()
-		wsConn.Close()
-		m := models.Message{}
-		m.From = user
-		m.Status = true
-		c <- m
-
+		err := wsConn.Close()
+		if err != nil {
+			log.Println(err)
+		}
+		srv.Logout(user)
 	}()
-
-	var logged bool
-
-	log.Println("Connected from ip address: ", wsConn.RemoteAddr().String())
 
 	go srv.WsTransmitter(wsConn, c)
 
@@ -175,15 +164,7 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 		err := wsConn.ReadJSON(&m)
 		if err != nil {
 			log.Println(err)
-			err := wsConn.Close()
-			if err != nil {
-				log.Println(err)
-			}
-
-			srv.Mu.Lock()
-			delete(srv.Clients, m.From)
-			srv.Mu.Unlock()
-			srv.OnlineCheckUp()
+			srv.Logout(user)
 			return
 		}
 
@@ -191,36 +172,12 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 			err := m.ValidateMessage()
 			if err != nil {
 				log.Println(err)
-				err := wsConn.WriteJSON(m)
-				if err != nil {
-					err := wsConn.Close()
-					if err != nil {
-						log.Println(err)
-					}
-
-					srv.Mu.Lock()
-					delete(srv.Clients, m.From)
-					srv.Mu.Unlock()
-					return
-				}
 				return
 			}
 
-			srv.Mu.Lock()
-			if srv.Clients[m.From] != nil {
-				delete(srv.Clients, m.From)
-			}
-
-			srv.Clients[m.From] = c
-			user = m.From
-			logged = true
-
-			srv.Mu.Unlock()
-			srv.OnlineCheckUp()
-
+			srv.Login(user, c)
 		} else {
 			srv.Mu.Lock()
-
 			receiver := srv.Clients[m.To]
 			srv.Mu.Unlock()
 			if receiver != nil {
@@ -233,7 +190,7 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 
 	defer func() {
-
+		close(c)
 	}()
 
 	for {
@@ -242,16 +199,6 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 		if y.Status {
 			return
 		}
-		srv.Mu.Lock()
-		var usersOnline []string
-
-		for k, _ := range srv.Clients {
-			usersOnline = append(usersOnline, k)
-		}
-
-		y.Users = usersOnline
-
-		srv.Mu.Unlock()
 
 		d, err := json.Marshal(y)
 		if err != nil {
@@ -265,13 +212,12 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 			return
 		}
 	}
-
 }
 
 func (srv *Server) WsTransmitter(conn *websocket.Conn, c chan models.Message) {
 
 	defer func() {
-
+		close(c)
 	}()
 
 	for {
@@ -281,52 +227,69 @@ func (srv *Server) WsTransmitter(conn *websocket.Conn, c chan models.Message) {
 			return
 		}
 
-		srv.Mu.Lock()
-		var usersOnline []string
-
-		for k, _ := range srv.Clients {
-			usersOnline = append(usersOnline, k)
-		}
-
-		y.Users = usersOnline
-
-		srv.Mu.Unlock()
-
 		err := conn.WriteJSON(y)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 	}
+}
 
+func (srv *Server) Connections() {
+
+	for {
+		select {
+		case s := <-srv.LoginChan:
+			srv.Mu.Lock()
+			srv.Clients[s.Name] = s.Channel
+			srv.Mu.Unlock()
+		case s := <-srv.LogoutChan:
+			srv.Mu.Lock()
+			delete(srv.Clients, s)
+			srv.Mu.Unlock()
+		}
+	}
+}
+
+func (srv *Server) Login(user string, c chan models.Message) {
+	u := &User{
+		Name:    user,
+		Channel: c,
+	}
+
+	srv.LoginChan <- u
+}
+
+func (srv *Server) Logout(user string) {
+	srv.LogoutChan <- user
 }
 
 func (srv *Server) OnlineCheckUp() {
 
-	srv.Mu.Lock()
-	if len(srv.Clients) > 0 {
-		y := models.Message{
-			From:   "Server",
-			To:     "All",
-			Data:   "",
-			Users:  nil,
-			Status: false,
-		}
-
-		var usersOnline []string
-
-		for k, _ := range srv.Clients {
-			usersOnline = append(usersOnline, k)
-		}
-
-		y.Users = usersOnline
-
-		for _, v := range srv.Clients {
-			v <- y
-		}
-
-	}
-	srv.Mu.Unlock()
+	//srv.Mu.Lock()
+	//if len(srv.Clients) > 0 {
+	//	y := models.Message{
+	//		From:   "Server",
+	//		To:     "All",
+	//		Data:   "",
+	//		Users:  nil,
+	//		Status: false,
+	//	}
+	//
+	//	var usersOnline []string
+	//
+	//	for k := range srv.Clients {
+	//		usersOnline = append(usersOnline, k)
+	//	}
+	//
+	//	y.Users = usersOnline
+	//
+	//	for _, v := range srv.Clients {
+	//		v <- y
+	//	}
+	//
+	//}
+	//srv.Mu.Unlock()
 }
 
 func ClientWithTls(addr string, rootCert string, i int) {
@@ -339,14 +302,13 @@ func ClientWithTls(addr string, rootCert string, i int) {
 
 	config := &tls.Config{RootCAs: roots, ServerName: "home.com"}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 	conn, err := tls.Dial("tcp", ":"+addr, config)
 	if err != nil {
 		log.Println(err.Error(), " ", i)
 		return
 	}
 
-	log.Println(fmt.Sprintf("%s", conn.ConnectionState().ServerName))
 	m := models.NewMessage(fmt.Sprintf("tcpUser%d", i), fmt.Sprintf("tcpUser%d", i), "Looking for new solution", nil)
 
 	d, err := json.Marshal(m)
@@ -369,6 +331,7 @@ func ClientWithTls(addr string, rootCert string, i int) {
 		}
 	}()
 
+	receiver := "WsUser" // generate random receiver
 	go func() {
 		for {
 			m := models.Message{}
@@ -386,7 +349,7 @@ func ClientWithTls(addr string, rootCert string, i int) {
 
 		m := models.Message{
 			From: fmt.Sprintf("tcpUser%d", i),
-			To:   fmt.Sprintf("WsUser"),
+			To:   receiver,
 			Data: "Looking for new solution",
 		}
 
@@ -463,28 +426,3 @@ gSYH0uJvDmkQrSVPQuxPJ/DG6ezZa+OGDQ/FeV9QlK8/08EH+D8zehk+cosLTTjU
 nlorXGgpc7E/qT0R/xWO1k5PhP7UmTxw0RkR6jh25GERdNDuD7XHpA/OZF0aVmod
 G2Oj3/YMQodII85LtAN5ZXsY
 -----END PRIVATE KEY-----`
-
-const serverKey = `-----BEGIN EC PARAMETERS-----
-BggqhkjOPQMBBw==
------END EC PARAMETERS-----
------BEGIN EC PRIVATE KEY-----
-MHcCAQEEIHg+g2unjA5BkDtXSN9ShN7kbPlbCcqcYdDu+QeV8XWuoAoGCCqGSM49
-AwEHoUQDQgAEcZpodWh3SEs5Hh3rrEiu1LZOYSaNIWO34MgRxvqwz1FMpLxNlx0G
-cSqrxhPubawptX5MSr02ft32kfOlYbaF5Q==
------END EC PRIVATE KEY-----
-`
-
-const serverCert = `-----BEGIN CERTIFICATE-----
-MIIB+TCCAZ+gAwIBAgIJAL05LKXo6PrrMAoGCCqGSM49BAMCMFkxCzAJBgNVBAYT
-AkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBXaWRn
-aXRzIFB0eSBMdGQxEjAQBgNVBAMMCWxvY2FsaG9zdDAeFw0xNTEyMDgxNDAxMTNa
-Fw0yNTEyMDUxNDAxMTNaMFkxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0
-YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQxEjAQBgNVBAMM
-CWxvY2FsaG9zdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABHGaaHVod0hLOR4d
-66xIrtS2TmEmjSFjt+DIEcb6sM9RTKS8TZcdBnEqq8YT7m2sKbV+TEq9Nn7d9pHz
-pWG2heWjUDBOMB0GA1UdDgQWBBR0fqrecDJ44D/fiYJiOeBzfoqEijAfBgNVHSME
-GDAWgBR0fqrecDJ44D/fiYJiOeBzfoqEijAMBgNVHRMEBTADAQH/MAoGCCqGSM49
-BAMCA0gAMEUCIEKzVMF3JqjQjuM2rX7Rx8hancI5KJhwfeKu1xbyR7XaAiEA2UT7
-1xOP035EcraRmWPe7tO0LpXgMxlh2VItpc2uc2w=
------END CERTIFICATE-----
-`
