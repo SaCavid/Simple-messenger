@@ -125,6 +125,7 @@ func (srv *Server) Receiver(conn net.Conn) {
 			}
 			srv.Mu.Unlock()
 		}
+		srv.ReceivedMessages++
 	}
 }
 
@@ -187,6 +188,7 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 	}()
 
 	for {
+		srv.SendMessages++
 		y := <-c
 
 		if y.Status {
@@ -204,6 +206,7 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 			log.Println(err)
 			return
 		}
+
 	}
 }
 
