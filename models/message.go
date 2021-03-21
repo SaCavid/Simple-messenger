@@ -6,16 +6,14 @@ type Message struct {
 	From   string
 	To     string
 	Data   string
-	Users  []string
 	Status bool // status of channel
 }
 
-func NewMessage(from, to, data string, users []string) *Message {
+func NewMessage(from, to, data string) *Message {
 	return &Message{
-		From:  from,
-		To:    to,
-		Data:  data,
-		Users: users,
+		From: from,
+		To:   to,
+		Data: data,
 	}
 }
 

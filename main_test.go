@@ -1,10 +1,10 @@
 package main
 
 import (
-	"./models"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/joho/godotenv"
 	"log"
@@ -16,9 +16,34 @@ import (
 	"time"
 )
 
-var (
-	Addr = "2500"
-)
+type Message struct {
+	From   string
+	To     string
+	Data   string
+	Users  []string
+	Status bool // status of channel
+}
+
+func NewMessage(from, to, data string, users []string) *Message {
+	return &Message{
+		From:  from,
+		To:    to,
+		Data:  data,
+		Users: users,
+	}
+}
+
+func (msg *Message) ValidateMessage() error {
+	if msg.From == "" {
+		return errors.New("sender cant be null")
+	}
+
+	if msg.To == "" {
+		return errors.New("receiver cant be null")
+	}
+
+	return nil
+}
 
 func TestTcp(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
@@ -34,15 +59,15 @@ func TestTcp(t *testing.T) {
 		ma = 1000
 	}
 
-	for i := 0; i < int(ma); i++ {
+	for i := ma; i < ma*2; i++ {
 		time.Sleep(1000 * time.Microsecond)
-		//go ClientWithTls(Addr, csr, i)
-		go ClientNoTls(Addr, i)
+		go ClientWithTls(os.Getenv("TLSPORT"), csr, int(i))
+		go ClientNoTls(os.Getenv("TCPPORT"), int(i*2))
 	}
 
 	for {
-		time.Sleep(1 * time.Second)
-		t.Error("controller")
+		time.Sleep(1000 * time.Second)
+		log.Println("controller")
 	}
 }
 
@@ -65,7 +90,7 @@ func ClientNoTls(addr string, i int) {
 
 	go func() {
 		for {
-			m := models.Message{}
+			m := Message{}
 			d := json.NewDecoder(conn)
 
 			err := d.Decode(&m)
@@ -73,13 +98,12 @@ func ClientNoTls(addr string, i int) {
 				log.Println(err)
 				return
 			}
-
 		}
 	}()
 
 	for {
 
-		m := models.Message{
+		m := Message{
 			From: fmt.Sprintf("tcpUser%d", i),
 			To:   fmt.Sprintf("tcpUser%d", 1),
 			Data: "Looking for new solution",
@@ -123,7 +147,7 @@ func ClientWithTls(addr string, rootCert string, i int) {
 		return
 	}
 
-	m := models.NewMessage(fmt.Sprintf("tcpUser%d", i), fmt.Sprintf("tcpUser%d", i), "Looking for new solution", nil)
+	m := NewMessage(fmt.Sprintf("tcpUser%d", i), fmt.Sprintf("tcpUser%d", i), "Looking for new solution", nil)
 
 	d, err := json.Marshal(m)
 	if err != nil {
@@ -149,7 +173,7 @@ func ClientWithTls(addr string, rootCert string, i int) {
 
 	go func() {
 		for {
-			m := models.Message{}
+			m := Message{}
 			d := json.NewDecoder(conn)
 
 			err := d.Decode(&m)
@@ -172,7 +196,7 @@ func ClientWithTls(addr string, rootCert string, i int) {
 		max := ma
 		l := rand.Intn(int(max)-min+1) + min
 
-		m := models.Message{
+		m := Message{
 			From: fmt.Sprintf("tcpUser%d", i),
 			To:   fmt.Sprintf("tcpUser%d", l),
 			Data: "Looking for new solution",

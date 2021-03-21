@@ -3,16 +3,11 @@ package service
 import (
 	"../models"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -66,23 +61,16 @@ func (srv *Server) TlsServer(addr string) {
 
 	log.Println("started server on ", addr, ", lens of certificates", len(configServer.Certificates))
 
-	go func() {
-		ma, err := strconv.ParseUint(os.Getenv("FAKEUSERS"), 10, 64)
-		if err != nil {
-			ma = 1000
-		}
-
-		for i := 0; i < int(ma); i++ {
-			time.Sleep(500 * time.Microsecond)
-			go srv.ClientWithTls(addr, csr, i)
-		}
-
-	}()
-
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		err = conn.SetReadDeadline(time.Now().Add(time.Second * 120))
+		if err != nil {
+			log.Println(err)
+			return
 		}
 
 		go srv.Receiver(conn)
@@ -115,10 +103,6 @@ func (srv *Server) Receiver(conn net.Conn) {
 		err := d.Decode(&m)
 		if err != nil {
 			log.Println(err)
-			err := conn.Close()
-			if err != nil {
-				log.Println(err)
-			}
 			return
 		}
 
@@ -254,6 +238,11 @@ func (srv *Server) Connections() {
 			srv.Mu.Unlock()
 		case s := <-srv.LogoutChan:
 			srv.Mu.Lock()
+			c := srv.Clients[s]
+
+			m := models.Message{}
+			m.Status = true
+			c <- m
 			delete(srv.Clients, s)
 			srv.Mu.Unlock()
 		}
@@ -271,130 +260,6 @@ func (srv *Server) Login(user string, c chan models.Message) {
 
 func (srv *Server) Logout(user string) {
 	srv.LogoutChan <- user
-}
-
-func (srv *Server) OnlineCheckUp() {
-
-	//srv.Mu.Lock()
-	//if len(srv.Clients) > 0 {
-	//	y := models.Message{
-	//		From:   "Server",
-	//		To:     "All",
-	//		Data:   "",
-	//		Users:  nil,
-	//		Status: false,
-	//	}
-	//
-	//	var usersOnline []string
-	//
-	//	for k := range srv.Clients {
-	//		usersOnline = append(usersOnline, k)
-	//	}
-	//
-	//	y.Users = usersOnline
-	//
-	//	for _, v := range srv.Clients {
-	//		v <- y
-	//	}
-	//
-	//}
-	//srv.Mu.Unlock()
-}
-
-func (srv *Server) ClientWithTls(addr string, rootCert string, i int) {
-
-	roots := x509.NewCertPool()
-	ok := roots.AppendCertsFromPEM([]byte(rootCert))
-	if !ok {
-		log.Fatal("failed to parse root certificate")
-	}
-
-	config := &tls.Config{RootCAs: roots, ServerName: "home.com"}
-
-	time.Sleep(3 * time.Second)
-	conn, err := tls.Dial("tcp", ":"+addr, config)
-	if err != nil {
-		log.Println(err.Error(), " ", i)
-		return
-	}
-
-	m := models.NewMessage(fmt.Sprintf("tcpUser%d", i), fmt.Sprintf("tcpUser%d", i), "Looking for new solution", nil)
-
-	d, err := json.Marshal(m)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	_, err = conn.Write(d)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	defer func() {
-
-		err = conn.Close()
-		if err != nil {
-			log.Println(err)
-		}
-
-		log.Println("finished tls client")
-	}()
-
-	// receiver := "WsUser" // generate random receiver
-
-	go func() {
-		for {
-			m := models.Message{}
-			d := json.NewDecoder(conn)
-
-			err := d.Decode(&m)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			srv.ReceivedMessages++
-		}
-	}()
-
-	for {
-
-		rand.Seed(time.Now().UnixNano())
-		min := 0
-		ma, err := strconv.ParseUint(os.Getenv("FAKEUSERS"), 10, 64)
-		if err != nil {
-			ma = 1000
-		}
-
-		max := ma
-		l := rand.Intn(int(max)-min+1) + min
-
-		m := models.Message{
-			From: fmt.Sprintf("tcpUser%d", i),
-			To:   fmt.Sprintf("tcpUser%d", l),
-			Data: "Looking for new solution",
-		}
-
-		if m.From == m.To {
-			continue
-		}
-
-		d, err := json.Marshal(m)
-		if err != nil {
-			log.Println(err)
-			break
-		}
-
-		_, err = conn.Write(d)
-		if err != nil {
-			log.Println(err.Error())
-			break
-		}
-
-		srv.SendMessages++
-		time.Sleep(1 * time.Second)
-	}
 }
 
 const csr = `-----BEGIN CERTIFICATE-----
