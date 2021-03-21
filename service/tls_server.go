@@ -22,15 +22,13 @@ var (
 )
 
 type Server struct {
-	Port       int
-	Mu         sync.Mutex
-	Clients    map[string]chan models.Message
-	GoRoutines int
+	Port    int
+	Mu      sync.Mutex
+	Clients map[string]chan models.Message
 }
 
 func (srv *Server) TlsServer(addr string) {
 
-	srv.GoRoutines++
 	cer, err := tls.X509KeyPair([]byte(csr), []byte(privateKey))
 	if err != nil {
 		log.Fatal(err)
@@ -73,17 +71,26 @@ func (srv *Server) TlsServer(addr string) {
 
 func (srv *Server) Receiver(conn net.Conn) {
 
-	srv.GoRoutines++
+	logged := false
+	var user string
+
+	c := make(chan models.Message, 8)
+
 	defer func() {
 
-		srv.GoRoutines--
+		m := models.Message{}
+
+		m.From = user
+		m.Status = true
+		c <- m
+		srv.Mu.Lock()
+		delete(srv.Clients, user)
+		srv.Mu.Unlock()
+
 	}()
-	c := make(chan models.Message, 8)
 
 	go srv.Transmitter(conn, c)
 
-	logged := false
-	log.Println("receiver working", conn.RemoteAddr())
 	for {
 		m := models.Message{}
 		d := json.NewDecoder(conn)
@@ -95,8 +102,6 @@ func (srv *Server) Receiver(conn net.Conn) {
 			if err != nil {
 				log.Println(err)
 			}
-
-			delete(srv.Clients, m.From)
 			srv.OnlineCheckUp()
 			return
 		}
@@ -117,6 +122,7 @@ func (srv *Server) Receiver(conn net.Conn) {
 			srv.Clients[m.From] = c
 			srv.Mu.Unlock()
 			logged = true
+			user = m.From
 			srv.OnlineCheckUp()
 		} else {
 			srv.Mu.Lock()
@@ -132,28 +138,35 @@ func (srv *Server) Receiver(conn net.Conn) {
 
 func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 
-	srv.GoRoutines++
 	wsConn, err := upGrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err.Error())
 		return
 	}
+
+	c := make(chan models.Message, 8)
+
 	var user string
+
 	defer func() {
 
 		log.Println("Ws client logged out")
+
+		srv.Mu.Lock()
 		delete(srv.Clients, user)
+		srv.Mu.Unlock()
 		srv.OnlineCheckUp()
 		wsConn.Close()
+		m := models.Message{}
+		m.From = user
+		m.Status = true
+		c <- m
 
-		srv.GoRoutines--
 	}()
 
 	var logged bool
 
 	log.Println("Connected from ip address: ", wsConn.RemoteAddr().String())
-
-	c := make(chan models.Message, 8)
 
 	go srv.WsTransmitter(wsConn, c)
 
@@ -166,7 +179,10 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Println(err)
 			}
+
+			srv.Mu.Lock()
 			delete(srv.Clients, m.From)
+			srv.Mu.Unlock()
 			srv.OnlineCheckUp()
 			return
 		}
@@ -181,7 +197,10 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 					if err != nil {
 						log.Println(err)
 					}
+
+					srv.Mu.Lock()
 					delete(srv.Clients, m.From)
+					srv.Mu.Unlock()
 					return
 				}
 				return
@@ -213,14 +232,16 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 
 func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 
-	srv.GoRoutines++
 	defer func() {
-		srv.GoRoutines--
+
 	}()
 
 	for {
 		y := <-c
 
+		if y.Status {
+			return
+		}
 		srv.Mu.Lock()
 		var usersOnline []string
 
@@ -249,13 +270,16 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 
 func (srv *Server) WsTransmitter(conn *websocket.Conn, c chan models.Message) {
 
-	srv.GoRoutines++
 	defer func() {
-		srv.GoRoutines--
+
 	}()
 
 	for {
 		y := <-c
+
+		if y.Status {
+			return
+		}
 
 		srv.Mu.Lock()
 		var usersOnline []string

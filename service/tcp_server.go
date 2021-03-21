@@ -11,7 +11,6 @@ import (
 
 func (srv *Server) TcpServer(addr string) {
 
-	srv.GoRoutines++
 	l, err := net.Listen("tcp", ":"+addr)
 	if err != nil {
 		log.Fatal(err)

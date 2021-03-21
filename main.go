@@ -7,7 +7,6 @@ import (
 	"github.com/joho/godotenv"
 	"log"
 	"os"
-	"time"
 )
 
 func main() {
@@ -28,10 +27,5 @@ func main() {
 	go srv.TlsServer(os.Getenv("TLSPORT"))
 	go srv.TcpServer(os.Getenv("TCPPORT"))
 
-	go func() {
-		time.Sleep(10 * time.Second)
-
-		log.Println(srv.GoRoutines)
-	}()
 	routes.Route(srv)
 }
