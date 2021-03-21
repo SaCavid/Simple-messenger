@@ -188,9 +188,9 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 	}()
 
 	for {
-		srv.SendMessages++
 		y := <-c
 
+		srv.SendMessages++
 		if y.Status {
 			return
 		}
