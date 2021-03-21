@@ -1,9 +1,9 @@
 package service
 
 import (
-	"../models"
 	"crypto/tls"
 	"encoding/json"
+	"github.com/SaCavid/Simple-messenger/models"
 	"github.com/gorilla/websocket"
 	"log"
 	"net"

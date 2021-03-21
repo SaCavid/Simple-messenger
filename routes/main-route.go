@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"../service"
+	"github.com/SaCavid/Simple-messenger/service"
 	"github.com/gorilla/mux"
 	"html/template"
 	"log"
