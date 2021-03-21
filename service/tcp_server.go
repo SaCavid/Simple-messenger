@@ -47,26 +47,12 @@ func ClientNoTls(addr string, i int) {
 		return
 	}
 
-	m := models.NewMessage(fmt.Sprintf("tcpUser%d", i*2), fmt.Sprintf("tcpUser%d", i), "Looking for new solution", nil)
-
-	d, err := json.Marshal(m)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	_, err = conn.Write(d)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-
 	defer func() {
-
 		err = conn.Close()
 		if err != nil {
 			log.Println(err)
 		}
+		log.Println("finished tls client")
 	}()
 
 	go func() {
@@ -79,7 +65,7 @@ func ClientNoTls(addr string, i int) {
 				log.Println(err)
 				return
 			}
-			log.Println(m)
+
 		}
 	}()
 
@@ -110,5 +96,4 @@ func ClientNoTls(addr string, i int) {
 		time.Sleep(3 * time.Second)
 	}
 
-	log.Println("finished tls client")
 }

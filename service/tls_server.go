@@ -282,8 +282,8 @@ func (srv *Server) OnlineCheckUp() {
 	srv.Mu.Lock()
 	if len(srv.Clients) > 0 {
 		y := models.Message{
-			From:   "",
-			To:     "",
+			From:   "Server",
+			To:     "All",
 			Data:   "",
 			Users:  nil,
 			Status: false,

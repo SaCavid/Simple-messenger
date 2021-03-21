@@ -204,7 +204,7 @@
 
                 let data = JSON.parse(e.data)
                 Messages.push(data)
-                if (data.From === "" && data.To === "") {
+                if (data.From === "Server" && data.To === "All") {
 
 
                     listUsers(data.Users)
