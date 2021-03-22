@@ -8,12 +8,16 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"log"
-	"math/rand"
 	"net"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+)
+
+var (
+	SendMessages     uint64
+	ReceivedMessages uint64
 )
 
 type Message struct {
@@ -59,75 +63,16 @@ func TestTcp(t *testing.T) {
 		ma = 1000
 	}
 
-	for i := ma; i < ma*2; i++ {
+	for i := 0; i < int(ma); i++ {
 		time.Sleep(1000 * time.Microsecond)
 		go ClientWithTls(os.Getenv("TLSPORT"), csr, int(i))
-		go ClientNoTls(os.Getenv("TCPPORT"), int(i*2))
+		// go ClientNoTls(os.Getenv("TCPPORT"), int(ma) + i)
 	}
 
 	for {
-		time.Sleep(1000 * time.Second)
-		log.Println("controller")
-	}
-}
-
-func ClientNoTls(addr string, i int) {
-
-	time.Sleep(5 * time.Second)
-	conn, err := net.Dial("tcp", ":"+addr)
-	if err != nil {
-		log.Println(err.Error(), " ", i)
-		return
-	}
-
-	defer func() {
-		err = conn.Close()
-		if err != nil {
-			log.Println(err)
-		}
-		log.Println("finished tls client")
-	}()
-
-	go func() {
-		for {
-			m := Message{}
-			d := json.NewDecoder(conn)
-
-			err := d.Decode(&m)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-		}
-	}()
-
-	for {
-
-		m := Message{
-			From: fmt.Sprintf("tcpUser%d", i),
-			To:   fmt.Sprintf("tcpUser%d", 1),
-			Data: "Looking for new solution",
-		}
-
-		if m.From == m.To {
-			continue
-		}
-
-		d, err := json.Marshal(m)
-		if err != nil {
-			log.Println(err)
-			break
-		}
-
-		_, err = conn.Write(d)
-		if err != nil {
-			log.Println(err.Error())
-			break
-		}
-
 		time.Sleep(3 * time.Second)
+		log.Println("controller: ", SendMessages, ReceivedMessages)
 	}
-
 }
 
 func ClientWithTls(addr string, rootCert string, i int) {
@@ -181,29 +126,16 @@ func ClientWithTls(addr string, rootCert string, i int) {
 				log.Println(err)
 				return
 			}
+			ReceivedMessages++
 		}
 	}()
 
 	for {
 
-		rand.Seed(time.Now().UnixNano())
-		min := 0
-		ma, err := strconv.ParseUint(os.Getenv("FAKEUSERS"), 10, 64)
-		if err != nil {
-			ma = 1000
-		}
-
-		max := ma
-		l := rand.Intn(int(max)-min+1) + min
-
 		m := Message{
 			From: fmt.Sprintf("tcpUser%d", i),
-			To:   fmt.Sprintf("tcpUser%d", l),
+			To:   fmt.Sprintf("tcpUser%d", 2),
 			Data: "Looking for new solution",
-		}
-
-		if m.From == m.To {
-			continue
 		}
 
 		d, err := json.Marshal(m)
@@ -219,6 +151,80 @@ func ClientWithTls(addr string, rootCert string, i int) {
 		}
 
 		time.Sleep(1 * time.Second)
+		SendMessages++
+	}
+}
+
+func ClientNoTls(addr string, i int) {
+
+	time.Sleep(3 * time.Second)
+
+	conn, err := net.Dial("tcp", ":"+addr)
+	if err != nil {
+		log.Println(err.Error(), " ", i)
+		return
+	}
+
+	m := NewMessage(fmt.Sprintf("tcpUser%d", i), fmt.Sprintf("tcpUser%d", i), "Looking for new solution", nil)
+
+	d, err := json.Marshal(m)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	_, err = conn.Write(d)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	defer func() {
+
+		err = conn.Close()
+		if err != nil {
+			log.Println(err)
+		}
+
+		log.Println("finished tls client")
+	}()
+
+	go func() {
+		for {
+			m := Message{}
+			d := json.NewDecoder(conn)
+
+			err := d.Decode(&m)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			ReceivedMessages++
+		}
+	}()
+
+	for {
+
+		m := Message{
+			From: fmt.Sprintf("tcpUser%d", i),
+			To:   fmt.Sprintf("tcpUser%d", 2),
+			Data: "Looking for new solution",
+		}
+
+		d, err := json.Marshal(m)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+
+		_, err = conn.Write(d)
+		if err != nil {
+			log.Println(err.Error())
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+		SendMessages++
 	}
 }
 

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/SaCavid/Simple-messenger/models"
-	"github.com/SaCavid/Simple-messenger/routes"
-	"github.com/SaCavid/Simple-messenger/service"
+	"./models"
+	"./routes"
+	"./service"
 	"github.com/joho/godotenv"
 	"log"
 	"os"
@@ -51,6 +51,6 @@ func Monitor(srv *service.Server) {
 		runtime.ReadMemStats(&r)
 
 		time.Sleep(3 * time.Second) // r.Mallocs-r.Frees,
-		log.Println("Number of goroutines:", runtime.NumGoroutine(), "Connected users:", len(srv.Clients), "Send messages:", srv.SendMessages, "Received Messages:", srv.ReceivedMessages, "Lost packages: ", srv.SendMessages-srv.ReceivedMessages)
+		log.Println("System goroutines:", runtime.NumGoroutine()-int(srv.ReceiverRoutine)-int(srv.TransmitterRoutine), "Rx", srv.ReceiverRoutine, "Tx", srv.TransmitterRoutine, "Connected users:", len(srv.Clients), "Send messages:", srv.SendMessages, "Received Messages:", srv.ReceivedMessages, "Lost packages: ", srv.ReceivedMessages-srv.SendMessages)
 	}
 }

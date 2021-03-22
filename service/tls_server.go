@@ -1,9 +1,9 @@
 package service
 
 import (
+	"../models"
 	"crypto/tls"
 	"encoding/json"
-	"github.com/SaCavid/Simple-messenger/models"
 	"github.com/gorilla/websocket"
 	"log"
 	"net"
@@ -18,14 +18,16 @@ var upGrader = websocket.Upgrader{
 }
 
 type Server struct {
-	Port             int
-	Mu               sync.Mutex
-	LoginChan        chan *User
-	LogoutChan       chan string
-	Clients          map[string]chan models.Message
-	SendMessages     uint64
-	ReceivedMessages uint64
-	DefaultDeadline  time.Duration
+	Port               int
+	Mu                 sync.Mutex
+	LoginChan          chan *User
+	LogoutChan         chan string
+	Clients            map[string]chan models.Message
+	ReceiverRoutine    uint64
+	TransmitterRoutine uint64
+	SendMessages       uint64
+	ReceivedMessages   uint64
+	DefaultDeadline    time.Duration
 }
 
 type User struct {
@@ -68,12 +70,12 @@ func (srv *Server) TlsServer(addr string) {
 			log.Fatal(err)
 		}
 
-		//err = conn.SetReadDeadline(time.Now().Add(srv.DefaultDeadline))
-		//if err != nil {
-		//	log.Println(err)
-		//	return
-		//}
-		log.Println("Canceled")
+		err = conn.SetReadDeadline(time.Now().Add(srv.DefaultDeadline))
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
 		go srv.Receiver(conn)
 	}
 }
@@ -84,15 +86,13 @@ func (srv *Server) Receiver(conn net.Conn) {
 	var user string
 
 	c := make(chan models.Message, 8)
-
+	srv.ReceiverRoutine++
 	defer func() {
 
-		err := conn.Close()
-		if err != nil {
-			log.Println(err)
-		}
+		conn.Close()
 
 		srv.Logout(user)
+		srv.ReceiverRoutine--
 	}()
 
 	go srv.Transmitter(conn, c)
@@ -121,10 +121,18 @@ func (srv *Server) Receiver(conn net.Conn) {
 			srv.Mu.Lock()
 
 			receiver := srv.Clients[m.To]
+			srv.ReceivedMessages++
+			srv.Mu.Unlock()
+
 			if receiver != nil {
 				receiver <- m
 			}
-			srv.Mu.Unlock()
+
+			err = conn.SetReadDeadline(time.Now().Add(srv.DefaultDeadline))
+			if err != nil {
+				log.Println(err)
+				return
+			}
 		}
 	}
 }
@@ -148,6 +156,7 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(err)
 		}
+
 		srv.Logout(user)
 	}()
 
@@ -158,7 +167,6 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 		err := wsConn.ReadJSON(&m)
 		if err != nil {
 			log.Println(err)
-			srv.Logout(user)
 			return
 		}
 
@@ -169,6 +177,8 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			user = m.From
+			logged = true
 			srv.Login(user, c)
 		} else {
 			srv.Mu.Lock()
@@ -183,36 +193,37 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 
 func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 
+	srv.TransmitterRoutine++
 	defer func() {
 		close(c)
+		srv.TransmitterRoutine--
 	}()
 
 	for {
 		y := <-c
 
-		srv.SendMessages++
 		if y.Status {
 			return
 		}
 
+		srv.Mu.Lock()
+		srv.SendMessages++
+		srv.Mu.Unlock()
 		d, err := json.Marshal(y)
 		if err != nil {
 			log.Println(err)
-			return
+			continue
 		}
-
 		_, err = conn.Write(d)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 
-		//err = conn.SetDeadline(time.Now().Add(srv.DefaultDeadline))
-		//if err != nil {
-		//	log.Println(err)
-		//}
-
-		srv.ReceivedMessages++
+		err = conn.SetDeadline(time.Now().Add(srv.DefaultDeadline))
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 
