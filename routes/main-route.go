@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"../service"
+	"github.com/SaCavid/Simple-messenger/service"
 	"github.com/gorilla/mux"
 	"html/template"
 	"log"
@@ -23,7 +23,7 @@ func Route(srv *service.Server) {
 	log.Fatal(http.ListenAndServe("localhost:"+httpPort, nil))
 }
 
-func Chat(w http.ResponseWriter, req *http.Request) {
+func Chat(w http.ResponseWriter, _ *http.Request) {
 	tmpl, err := template.New("index.html").ParseFiles("./assets/index.html", "./assets/header.html")
 	if err != nil {
 		log.Println(err.Error())
