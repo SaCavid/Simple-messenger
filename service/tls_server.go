@@ -169,7 +169,7 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			return
 		}
-
+		log.Println(m)
 		if !logged {
 			err := m.ValidateMessage()
 			if err != nil {

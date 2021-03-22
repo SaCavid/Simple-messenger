@@ -26,7 +26,6 @@
 
             <div class="row login">
                 <div class="col-md-4">
-
                     <div class="form-group">
                         <label for="usernameInput">Username </label>
                         <input type="text" class="form-control" id="usernameInput" aria-describedby="usernameHelp"
@@ -38,9 +37,17 @@
                     </button>
                 </div>
             </div>
-            <button class="btn btn-danger" onclick="addTab()">Add</button>
-            <div class="row">
+            <div class="row chat">
+
                 <div class="col-4">
+                    <div class="input-group mb-3">
+                        <input id="addUser" type="text" class="form-control" placeholder="Add user"
+                               aria-label="Enter message" aria-describedby="basic-addon2">
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-secondary" type="button" onclick="addTab()"><i
+                                    class="fas fa-paper-plane"></i></button>
+                        </div>
+                    </div>
                     <div class="list-group" id="list-tab" role="tablist">
 
                     </div>
@@ -51,33 +58,33 @@
                     </div>
                 </div>
             </div>
-            <div class="row chat">
+            <!--            <div class="row chat">-->
 
-                <div id="usersList" class="col-md-3">
+            <!--                <div id="usersList" class="col-md-3">-->
 
-                </div>
-                <div class="col-md-9 messages">
-                    <div class="card">
-                        <div id="receiverUser" class="card-header">
-                            <h5>Username</h5>
-                        </div>
+            <!--                </div>-->
+            <!--                <div class="col-md-9 messages">-->
+            <!--                    <div class="card">-->
+            <!--                        <div id="receiverUser" class="card-header">-->
+            <!--                            <h5>Username</h5>-->
+            <!--                        </div>-->
 
-                        <div id="messages" class="card-body" style="height: 300px; overflow-y: scroll">
+            <!--                        <div id="messages" class="card-body" style="height: 300px; overflow-y: scroll">-->
 
-                        </div>
-                        <div class="card-footer">
-                            <div class="input-group mb-3">
-                                <input id="message" type="text" class="form-control" placeholder="Enter message"
-                                       aria-label="Enter message" aria-describedby="basic-addon2">
-                                <div class="input-group-append">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="sendMessage()"><i
-                                            class="fas fa-paper-plane"></i></button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!--                        </div>-->
+            <!--                        <div class="card-footer">-->
+            <!--                            <div class="input-group mb-3">-->
+            <!--                                <input id="message" type="text" class="form-control" placeholder="Enter message"-->
+            <!--                                       aria-label="Enter message" aria-describedby="basic-addon2">-->
+            <!--                                <div class="input-group-append">-->
+            <!--                                    <button class="btn btn-outline-secondary" type="button" onclick="sendMessage()"><i-->
+            <!--                                            class="fas fa-paper-plane"></i></button>-->
+            <!--                                </div>-->
+            <!--                            </div>-->
+            <!--                        </div>-->
+            <!--                    </div>-->
+            <!--                </div>-->
+            <!--            </div>-->
         </div>
     </div>
 </div>
@@ -91,24 +98,43 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
 <script>
     let Username = "";
-    let Receiver = "WpUser";
-    let Messages = [];
+    let Receiver = "";
     let Users = [];
     let Ws;
 
     $(".chat").hide();
 
-    function addTab(d) {
+    function addTab() {
 
         let active = "";
         if (Receiver === "" || Receiver === undefined) {
             active = 'active'
         }
-        
-        $("#list-tab").append(`<a class="list-group-item list-group-item-action ` + active + `" id="list-` + d + `-list" data-toggle="list" href="#list-` + d + `" role="tab" aria-controls="home">
+        let d = $("#addUser").val();
+
+        if (d === undefined || d === "") {
+            Notification("info", "User input cant be null")
+            return
+        }
+
+        Receiver = d
+        let exists = false;
+        for (let i = 0; i < Users.length; i++) {
+            if (d === Users[i]) {
+                exists = true
+            }
+        }
+        if (exists) {
+            Notification("warning", "User already exists in user list")
+            $("#addUser").val("")
+            return
+        }
+
+        Users.push(d)
+        $("#list-tab").append(`<a class="list-group-item list-group-item-action ` + active + `" id="list-` + d + `-list" data-toggle="list" href="#list-` + d + `" role="tab" aria-controls="home" onclick="selectUser('` + d + `')">
                             <div class="d-flex w-100 justify-content-between">
-                                Home ` + d + `
-                                <small>3 days ago</small>
+                                ` + d + `
+<!--                                <small>3 days ago</small>-->
                             </div></a>`);
         $("#nav-tabContent").append(`<div class="tab-pane fade show ` + active + `" id="list-` + d + `" role="tabpanel"
                              aria-labelledby="list-` + d + `-list">
@@ -125,22 +151,23 @@
                                                aria-label="Enter message" aria-describedby="basic-addon2">
                                         <div class="input-group-append">
                                             <button class="btn btn-outline-secondary" type="button"
-                                                    onclick="sendMessage(` + d + `)"><i
+                                                    onclick="sendMessage()"><i
                                                     class="fas fa-paper-plane"></i></button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>`);
+
+        $("#addUser").val("")
     }
 
     function sendMessage() {
-        let m = $("#message").val();
 
         let message = {
             "From": Username,
             "To": Receiver,
-            "Data": m
+            "Data": "Test Data"
         }
 
         if (message.From === "" || message.To === "") {
@@ -153,16 +180,10 @@
             return
         }
 
-        Messages.push(message)
-        if (Messages.length > 250) {
-            Messages.slice(Messages.length - 251, Messages.length - 1);
-        }
-
         message = JSON.stringify(message)
         Ws.send(message)
 
-        listMessages();
-        $("#message").val("")
+        console.log("Message sent")
     }
 
     function WebSocketTest() {
@@ -203,13 +224,7 @@
             ws.onmessage = function (e) {
 
                 let data = JSON.parse(e.data)
-                Messages.push(data)
-                if (data.From === "Server" && data.To === "All") {
-
-
-                    listUsers(data.Users)
-                }
-                listMessages();
+                console.log(data)
             };
 
             ws.onclose = function () {
@@ -231,61 +246,9 @@
         }
     }
 
-    function listUsers(users) {
-        let active = false;
-        let html = `<ul class="list-group">`;
-        for (let i = 0; i < users.length; i++) {
-            if (users[i] !== Username) {
-                if (!active) {
-                    Receiver = users[i];
-                    $("#receiverUser").html("<h5>" + Receiver + "</h5>")
-                    html = html + `<li class="list-group-item list-group-item-action active" onclick="selectUser(this)">` + users[i] + `</li> `
-                    active = true
-                } else {
-                    html = html + `<li class="list-group-item list-group-item-action" onclick="selectUser(this)">` + users[i] + `</li> `
-                }
-            } else {
-                let usersCount = users.length - 1
-                $("#chatUser").html("<h5>Online : " + usersCount + " users</h5>");
-            }
-        }
-        html = html + `</ul>`;
-
-        $("#usersList").html(html);
-
-    }
-
     function selectUser(d) {
-        $("#usersList ul li").removeClass("active")
-        $(d).addClass("active")
-
-        Receiver = $(d).text();
-        $("#receiverUser").html("<h5>" + Receiver + "</h5>")
-        listMessages()
-    }
-
-    function listMessages() {
-        $("#messages").html('')
-
-
-        for (let i = 0; i < Messages.length; i++) {
-            let message = Messages[i]
-            if (message.From === Receiver || message.To === Receiver) {
-                if (message.From === Username) {
-                    $("#messages").append(`</br><div class="message float-right"><span>` + message.Data + `</span></div>`)
-
-                }
-
-                if (message.To === Username) {
-
-                    $("#messages").append(`</br><div class="message"><span>` + message.Data + `</span></div>`);
-
-                }
-                // $('#messages ').last()[0].scrollIntoView();
-                let myDiv = document.getElementById("messages");
-                myDiv.scrollTop = myDiv.scrollHeight;
-            }
-        }
+        Receiver = d;
+        console.log(Receiver)
     }
 
     function Notification(s, msg) {
