@@ -30,10 +30,11 @@ func main() {
 	}
 
 	srv := &service.Server{
-		Port:       0,
-		LoginChan:  make(chan *service.User, size),
-		LogoutChan: make(chan string, size),
-		Clients:    make(map[string]chan models.Message, 0),
+		Port:            0,
+		LoginChan:       make(chan *service.User, size),
+		LogoutChan:      make(chan string, size),
+		Clients:         make(map[string]chan models.Message, 0),
+		DefaultDeadline: time.Second * 120,
 	}
 
 	go srv.Connections()

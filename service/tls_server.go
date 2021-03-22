@@ -25,6 +25,7 @@ type Server struct {
 	Clients          map[string]chan models.Message
 	SendMessages     uint64
 	ReceivedMessages uint64
+	DefaultDeadline  time.Duration
 }
 
 type User struct {
@@ -67,7 +68,7 @@ func (srv *Server) TlsServer(addr string) {
 			log.Fatal(err)
 		}
 
-		err = conn.SetReadDeadline(time.Now().Add(time.Second * 120))
+		err = conn.SetReadDeadline(time.Now().Add(srv.DefaultDeadline))
 		if err != nil {
 			log.Println(err)
 			return
@@ -204,6 +205,11 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 		if err != nil {
 			log.Println(err)
 			return
+		}
+
+		err = conn.SetDeadline(time.Now().Add(srv.DefaultDeadline))
+		if err != nil {
+			log.Println(err)
 		}
 
 		srv.ReceivedMessages++
