@@ -89,7 +89,7 @@ func (srv *Server) Receiver(conn net.Conn) {
 	srv.ReceiverRoutine++
 	defer func() {
 
-		conn.Close()
+		_ = conn.Close()
 
 		srv.Logout(user)
 		srv.ReceiverRoutine--
@@ -235,6 +235,9 @@ func (srv *Server) WsTransmitter(conn *websocket.Conn, c chan models.Message) {
 
 	for {
 		y := <-c
+
+
+
 		log.Println(y)
 		if y.Status {
 			return
