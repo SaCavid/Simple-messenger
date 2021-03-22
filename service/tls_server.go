@@ -68,12 +68,12 @@ func (srv *Server) TlsServer(addr string) {
 			log.Fatal(err)
 		}
 
-		err = conn.SetReadDeadline(time.Now().Add(srv.DefaultDeadline))
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
+		//err = conn.SetReadDeadline(time.Now().Add(srv.DefaultDeadline))
+		//if err != nil {
+		//	log.Println(err)
+		//	return
+		//}
+		log.Println("Canceled")
 		go srv.Receiver(conn)
 	}
 }
@@ -207,10 +207,10 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 			return
 		}
 
-		err = conn.SetDeadline(time.Now().Add(srv.DefaultDeadline))
-		if err != nil {
-			log.Println(err)
-		}
+		//err = conn.SetDeadline(time.Now().Add(srv.DefaultDeadline))
+		//if err != nil {
+		//	log.Println(err)
+		//}
 
 		srv.ReceivedMessages++
 	}
