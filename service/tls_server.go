@@ -3,8 +3,8 @@ package service
 import (
 	"crypto/tls"
 	"encoding/json"
-	//"github.com/SaCavid/Simple-messenger/models"
-	"../models"
+	"github.com/SaCavid/Simple-messenger/models"
+	//"../models"
 	"github.com/gorilla/websocket"
 	"log"
 	"net"
@@ -92,7 +92,6 @@ func (srv *Server) Receiver(conn net.Conn) {
 
 		_ = conn.Close()
 
-		srv.Logout(user)
 		srv.ReceiverRoutine--
 	}()
 
@@ -149,6 +148,7 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	srv.ReceiverRoutine++
 	c := make(chan models.Message, 8)
 
 	defer func() {
@@ -158,7 +158,7 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 		}
 
-		srv.Logout(user)
+		srv.ReceiverRoutine--
 	}()
 
 	go srv.WsTransmitter(wsConn, c)
@@ -183,6 +183,7 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 		} else {
 			srv.Mu.Lock()
 			receiver := srv.Clients[m.To]
+			srv.ReceivedMessages++
 			srv.Mu.Unlock()
 			if receiver != nil {
 				receiver <- m
@@ -202,6 +203,7 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 	defer func() {
 		close(c)
 		srv.TransmitterRoutine--
+		_ = conn.Close()
 	}()
 
 	for {
@@ -234,8 +236,10 @@ func (srv *Server) Transmitter(conn net.Conn, c chan models.Message) {
 
 func (srv *Server) WsTransmitter(conn *websocket.Conn, c chan models.Message) {
 
+	srv.TransmitterRoutine++
 	defer func() {
 		close(c)
+		srv.TransmitterRoutine--
 		_ = conn.Close()
 	}()
 
@@ -245,6 +249,10 @@ func (srv *Server) WsTransmitter(conn *websocket.Conn, c chan models.Message) {
 		if y.Status {
 			return
 		}
+
+		srv.Mu.Lock()
+		srv.SendMessages++
+		srv.Mu.Unlock()
 
 		err := conn.WriteJSON(y)
 		if err != nil {

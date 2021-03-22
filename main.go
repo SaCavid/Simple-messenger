@@ -1,12 +1,12 @@
 package main
 
 import (
-	//"github.com/SaCavid/Simple-messenger/models"
-	//"github.com/SaCavid/Simple-messenger/routes"
-	//"github.com/SaCavid/Simple-messenger/service"
-	"./models"
-	"./routes"
-	"./service"
+	"github.com/SaCavid/Simple-messenger/models"
+	"github.com/SaCavid/Simple-messenger/routes"
+	"github.com/SaCavid/Simple-messenger/service"
+	//"./models"
+	//"./routes"
+	//"./service"
 	"github.com/joho/godotenv"
 	"log"
 	"os"
