@@ -187,11 +187,6 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 			srv.Mu.Unlock()
 			if receiver != nil {
 				receiver <- m
-			} else {
-				log.Println(m.To, "user didnt exists")
-				for k := range srv.Clients {
-					log.Println(k)
-				}
 			}
 		}
 	}
