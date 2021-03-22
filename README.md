@@ -77,4 +77,4 @@ At the moment all users in a tcp, tls and http (websocket) can see and message e
     https://gist.github.com/denji/12b3a568f092ab951456
     https://getbootstrap.com/
     https://jquery.com/
-    https://bootsnipp.com/snippets/exR5v
+    https://bootsnipp.com/snippets/1ea0N 
