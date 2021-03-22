@@ -9,86 +9,290 @@
           integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN"
           crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css">
+    <style>
+        .chatBody {
+            height: 300px;
+            background-color: #95a5a6;
+        }
 
+        /*---------chat window---------------*/
+        .inbox_people {
+            background: #fff;
+            float: left;
+            overflow: hidden;
+            width: 30%;
+            border-right: 1px solid #ddd;
+        }
+
+        .inbox_msg {
+            border: 1px solid #ddd;
+            clear: both;
+            overflow: hidden;
+        }
+
+        .top_spac {
+            margin: 20px 0 0;
+        }
+
+        .recent_heading {
+            float: left;
+            width: 40%;
+        }
+
+        .srch_bar {
+            display: inline-block;
+            text-align: right;
+            width: 60%;
+        }
+
+        .headind_srch {
+            padding: 10px 29px 10px 20px;
+            overflow: hidden;
+            border-bottom: 1px solid #c4c4c4;
+        }
+
+        .recent_heading h4 {
+            color: #0465ac;
+            font-size: 16px;
+            margin: auto;
+            line-height: 29px;
+        }
+
+        .srch_bar input {
+            outline: none;
+            border: 1px solid #cdcdcd;
+            border-width: 0 0 1px 0;
+            width: 80%;
+            padding: 2px 0 4px 6px;
+            background: none;
+        }
+
+        .srch_bar .input-group-addon button {
+            background: rgba(0, 0, 0, 0) none repeat scroll 0 0;
+            border: medium none;
+            padding: 0;
+            color: #707070;
+            font-size: 18px;
+        }
+
+        .srch_bar .input-group-addon {
+            margin: 0 0 0 -27px;
+        }
+
+        .chat_ib h5 {
+            font-size: 15px;
+            color: #464646;
+            margin: 0 0 8px 0;
+        }
+
+        .chat_ib h5 span {
+            font-size: 13px;
+            float: right;
+        }
+
+        .chat_ib p {
+            font-size: 12px;
+            color: #989898;
+            margin: auto;
+            display: inline-block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat_img {
+            float: left;
+            width: 11%;
+        }
+
+        .chat_img img {
+            width: 100%
+        }
+
+        .chat_ib {
+            float: left;
+            padding: 0 0 0 15px;
+            width: 88%;
+        }
+
+        .chat_people {
+            overflow: hidden;
+            clear: both;
+        }
+
+        .chat_list {
+            border-bottom: 1px solid #ddd;
+            margin: 0;
+            padding: 18px 16px 10px;
+        }
+
+        .inbox_chat {
+            height: 550px;
+            overflow-y: scroll;
+        }
+
+        .active_chat {
+            background: #e8f6ff;
+        }
+
+        .incoming_msg_img {
+            display: inline-block;
+            width: 6%;
+        }
+
+        .incoming_msg_img img {
+            width: 100%;
+        }
+
+        .received_msg {
+            display: inline-block;
+            padding: 0 0 0 10px;
+            vertical-align: top;
+            width: 92%;
+        }
+
+        .received_withd_msg p {
+            background: #ebebeb none repeat scroll 0 0;
+            border-radius: 0 15px 15px 15px;
+            color: #646464;
+            font-size: 14px;
+            margin: 0;
+            padding: 5px 10px 5px 12px;
+            width: 100%;
+        }
+
+        .time_date {
+            color: #747474;
+            display: block;
+            font-size: 12px;
+            margin: 8px 0 0;
+        }
+
+        .received_withd_msg {
+            width: 57%;
+        }
+
+        .mesgs {
+            float: left;
+            padding: 30px 15px 0 25px;
+            width: 70%;
+        }
+
+        .sent_msg p {
+            background: #0465ac;
+            border-radius: 12px 15px 15px 0;
+            font-size: 14px;
+            margin: 0;
+            color: #fff;
+            padding: 5px 10px 5px 12px;
+            width: 100%;
+        }
+
+        .outgoing_msg {
+            overflow: hidden;
+            margin: 26px 0 26px;
+        }
+
+        .sent_msg {
+            float: right;
+            width: 46%;
+        }
+
+        .input_msg_write input {
+            background: rgba(0, 0, 0, 0) none repeat scroll 0 0;
+            border: medium none;
+            color: #4c4c4c;
+            font-size: 15px;
+            min-height: 48px;
+            width: 100%;
+            outline: none;
+        }
+
+        .type_msg {
+            border-top: 1px solid #c4c4c4;
+            position: relative;
+        }
+
+        .msg_send_btn {
+            background: #05728f none repeat scroll 0 0;
+            border: none;
+            border-radius: 50%;
+            color: #fff;
+            cursor: pointer;
+            font-size: 15px;
+            height: 33px;
+            position: absolute;
+            right: 0;
+            top: 11px;
+            width: 33px;
+        }
+
+        .messaging {
+            padding: 0 0 50px 0;
+        }
+
+        .msg_history {
+            height: 516px;
+            overflow-y: auto;
+        }
+    </style>
+    <style>
+        .mesgs{
+            display: none;
+        }
+    </style>
 </head>
 <body>
 
 <div class="container">
 
-    <div class="card">
+    <div class="card mt-3">
         <div class="card-header">
             <h5>Chat app</h5>
-        </div>
-        <div class="card-body">
-            <div id="chatUser" class="card-title">
-
-            </div>
-
-            <div class="row login">
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label for="usernameInput">Username </label>
-                        <input type="text" class="form-control" id="usernameInput" aria-describedby="usernameHelp"
-                               placeholder="Enter Username" value="WsUser">
-                        <small id="usernameHelp" class="form-text text-muted">Simple information for
-                            identification.</small>
-                    </div>
-                    <button type="submit" class="btn btn-primary" onclick="WebSocketTest()">Connect to websocket
-                    </button>
-                </div>
-            </div>
-            <div class="row chat">
-
-                <div class="col-4">
-                    <div class="input-group mb-3">
-                        <input id="addUser" type="text" class="form-control" placeholder="Add user"
-                               aria-label="Enter message" aria-describedby="basic-addon2">
-                        <div class="input-group-append">
-                            <button class="btn btn-outline-secondary" type="button" onclick="addTab()"><i
-                                    class="fas fa-paper-plane"></i></button>
-                        </div>
-                    </div>
-                    <div class="list-group" id="list-tab" role="tablist">
-
-                    </div>
-                </div>
-                <div class="col-8">
-                    <div class="tab-content" id="nav-tabContent">
-
-                    </div>
-                </div>
-            </div>
-            <!--            <div class="row chat">-->
-
-            <!--                <div id="usersList" class="col-md-3">-->
-
-            <!--                </div>-->
-            <!--                <div class="col-md-9 messages">-->
-            <!--                    <div class="card">-->
-            <!--                        <div id="receiverUser" class="card-header">-->
-            <!--                            <h5>Username</h5>-->
-            <!--                        </div>-->
-
-            <!--                        <div id="messages" class="card-body" style="height: 300px; overflow-y: scroll">-->
-
-            <!--                        </div>-->
-            <!--                        <div class="card-footer">-->
-            <!--                            <div class="input-group mb-3">-->
-            <!--                                <input id="message" type="text" class="form-control" placeholder="Enter message"-->
-            <!--                                       aria-label="Enter message" aria-describedby="basic-addon2">-->
-            <!--                                <div class="input-group-append">-->
-            <!--                                    <button class="btn btn-outline-secondary" type="button" onclick="sendMessage()"><i-->
-            <!--                                            class="fas fa-paper-plane"></i></button>-->
-            <!--                                </div>-->
-            <!--                            </div>-->
-            <!--                        </div>-->
-            <!--                    </div>-->
-            <!--                </div>-->
-            <!--            </div>-->
+            <small>Add first user manually to start</small>
         </div>
     </div>
-</div>
 
+    <div class="row mt-3 login">
+        <div class="col-md-4">
+            <div class="form-group">
+                <label for="usernameInput">Login </label>
+                <input type="text" class="form-control" id="usernameInput" aria-describedby="usernameHelp"
+                       placeholder="Enter Username" value="WsUser">
+                <small id="usernameHelp" class="form-text text-muted">Simple information for
+                    identification.</small>
+            </div>
+            <button type="submit" class="btn btn-primary" onclick="WebSocketTest()">Connect to websocket
+            </button>
+        </div>
+    </div>
+    <div class="messaging mt-3 chat">
+        <div id="inboxMsg" class="inbox_msg">
+            <div class="inbox_people">
+                <div class="headind_srch">
+                    <div class="recent_heading">
+                        <h4>Recent</h4>
+                    </div>
+                    <div class="srch_bar">
+                        <div class="stylish-input-group">
+                            <input id="addUser" type="text" class="search-bar" placeholder="Add User">
+                            <span class="input-group-addon">
+                                <button type="button" onclick="addTab()">
+                                    <i class="fa fa-plus" aria-hidden="true"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div id="inboxChat" class="inbox_chat">
+
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"
         integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
@@ -108,12 +312,17 @@
 
         let active = "";
         if (Receiver === "" || Receiver === undefined) {
-            active = 'active'
+            active = 'active_chat'
         }
         let d = $("#addUser").val();
 
         if (d === undefined || d === "") {
             Notification("info", "User input cant be null")
+            return
+        }
+
+        if (d === "ad") {
+            Notification("info", "Please use another username. Unknown error.")
             return
         }
 
@@ -131,43 +340,68 @@
         }
 
         Users.push(d)
-        $("#list-tab").append(`<a class="list-group-item list-group-item-action ` + active + `" id="list-` + d + `-list" data-toggle="list" href="#list-` + d + `" role="tab" aria-controls="home" onclick="selectUser('` + d + `')">
-                            <div class="d-flex w-100 justify-content-between">
-                                ` + d + `
-<!--                                <small>3 days ago</small>-->
-                            </div></a>`);
-        $("#nav-tabContent").append(`<div class="tab-pane fade show ` + active + `" id="list-` + d + `" role="tabpanel"
-                             aria-labelledby="list-` + d + `-list">
-                            <div class="card">
-                                <div class="card-header">
-                                    ` + d + `
-                                </div>
-                                <div class="card-body">
-                                    Body
-                                </div>
-                                <div class="card-footer">
-                                    <div class="input-group mb-3">
-                                        <input id="` + d + `Message" type="text" class="form-control" placeholder="Enter message"
-                                               aria-label="Enter message" aria-describedby="basic-addon2">
-                                        <div class="input-group-append">
-                                            <button class="btn btn-outline-secondary" type="button"
-                                                    onclick="sendMessage()"><i
-                                                    class="fas fa-paper-plane"></i></button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>`);
 
+        addBox (d, active)
+
+        if (active !== ""){
+
+            $("#"+d+"Body").show()
+        }
+        console.log("#"+d+"Body")
         $("#addUser").val("")
     }
 
-    function sendMessage() {
+    function adduser(d) {
+        let active = "active_chat";
 
+        if (Users.length > 1) {
+            active = ""
+        } else {
+            Receiver = d
+        }
+
+        addBox (d, active)
+        $("#addUser").val("")
+    }
+
+    function addBox (d, active){
+
+        $("#inboxChat").append(`<div id="`+d+`List" class="chat_list `+active+`" onclick="selectUser('`+d+`')">
+                        <div class="chat_people">
+                            <div class="chat_img">
+                                <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil">
+                            </div>
+                            <div class="chat_ib">
+                                <h5>`+d+`<span id="`+d+`Date" class="chat_date"></span></h5>
+                                <p id="`+d+`Last"></p>
+                            </div>
+                        </div>
+                    </div>`)
+
+        $("#inboxMsg").append(`<div id="`+d+`Body" class="mesgs">
+                <div class="msg_history">
+                </div>
+                <div class="type_msg">
+                    <div class="input_msg_write">
+                        <input id="` + d + `Message"  type="text" class="write_msg" placeholder="Type a message"/>
+                        <button class="msg_send_btn" type="button" onclick="sendMessage('`+d+`')"><i class="fa fa-paper-plane-o"
+                                                                      aria-hidden="true"></i></button>
+                    </div>
+                </div>
+            </div>`);
+        if (active !== ""){
+
+            $("#"+d+"Body").show()
+        }
+    }
+
+    function sendMessage(d) {
+
+        let data = $("#" + d + "Message").val()
         let message = {
             "From": Username,
-            "To": Receiver,
-            "Data": "Test Data"
+            "To": d,
+            "Data": data
         }
 
         if (message.From === "" || message.To === "") {
@@ -182,8 +416,16 @@
 
         message = JSON.stringify(message)
         Ws.send(message)
+        let dt = new Date();
+        let month =  dt.getMonth()+1;
 
-        console.log("Message sent")
+        $("#" + d + "Body .msg_history").append(` <div class="outgoing_msg">
+              <div class="sent_msg">
+                <p>`+data+`</p>
+                <span class="time_date"> `+dt.getHours()+`:`+dt.getMinutes()+`    |    `+month+`/`+dt.getDate()+`/`+dt.getUTCFullYear()+`</span> </div>
+            </div>`)
+
+        $("#" + d + "Message").val("")
     }
 
     function WebSocketTest() {
@@ -223,8 +465,37 @@
 
             ws.onmessage = function (e) {
 
-                let data = JSON.parse(e.data)
-                console.log(data)
+                let message = JSON.parse(e.data)
+                let exists = false;
+
+                for (let i = 0; i < Users.length; i++) {
+                    if (message.From === Users[i]) {
+                        exists = true
+                    }
+                }
+
+                if (!exists) {
+                    Users.push(message.From)
+
+                    adduser(message.From)
+                }
+
+                console.log(message)
+
+                let dt = new Date();
+                let month =  dt.getMonth()+1;
+
+                $("#" + message.From + "Body .msg_history").append(`<div class="incoming_msg">
+              <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="`+message.From+`"> </div>
+              <div class="received_msg">
+                <div class="received_withd_msg">
+                  <p>`+message.Data+`</p>
+                  <span class="time_date"> `+dt.getHours()+`:`+dt.getMinutes()+`    |    `+month+`/`+dt.getDate()+`/`+dt.getUTCFullYear()+`</span> </div>
+              </div>
+            </div>`)
+
+                $("#" + message.From + "Last").text(message.Data)
+                $("#"+message.From + "Date").text(month+`/`+dt.getDate()+`/`+dt.getUTCFullYear())
             };
 
             ws.onclose = function () {
@@ -242,13 +513,17 @@
         } else {
 
             // The browser doesn't support WebSocket
-            console.log("WebSocket NOT supported by your Browser!");
+            alert("WebSocket NOT supported by your Browser!");
         }
     }
 
     function selectUser(d) {
         Receiver = d;
-        console.log(Receiver)
+        $(".chat_list").removeClass("active_chat");
+        $("#"+d+"List").addClass("active_chat");
+        $(".mesgs").hide()
+        $("#"+d+"Body").show()
+        console.log(d)
     }
 
     function Notification(s, msg) {

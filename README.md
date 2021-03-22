@@ -71,3 +71,10 @@ At the moment all users in a tcp, tls and http (websocket) can see and message e
     5. Lost packages:  9 (under 0.1% - Mostly not correct timing calculation difference)
 ### Test tools
 ### Used Resources
+    https://gobyexample.com/
+    https://certificatetools.com/
+    https://pkg.go.dev/
+    https://gist.github.com/denji/12b3a568f092ab951456
+    https://getbootstrap.com/
+    https://jquery.com/
+    https://bootsnipp.com/snippets/exR5v

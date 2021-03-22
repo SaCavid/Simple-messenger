@@ -3,7 +3,8 @@ package service
 import (
 	"crypto/tls"
 	"encoding/json"
-	"github.com/SaCavid/Simple-messenger/models"
+	//"github.com/SaCavid/Simple-messenger/models"
+	"../models"
 	"github.com/gorilla/websocket"
 	"log"
 	"net"
@@ -169,7 +170,6 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			return
 		}
-
 		if !logged {
 			err := m.ValidateMessage()
 			if err != nil {
@@ -186,6 +186,11 @@ func (srv *Server) WsReceiver(w http.ResponseWriter, r *http.Request) {
 			srv.Mu.Unlock()
 			if receiver != nil {
 				receiver <- m
+			} else {
+				log.Println(m.To, "user didnt exists")
+				for k := range srv.Clients {
+					log.Println(k)
+				}
 			}
 		}
 	}
@@ -231,14 +236,12 @@ func (srv *Server) WsTransmitter(conn *websocket.Conn, c chan models.Message) {
 
 	defer func() {
 		close(c)
+		_ = conn.Close()
 	}()
 
 	for {
 		y := <-c
 
-
-
-		log.Println(y)
 		if y.Status {
 			return
 		}
@@ -257,6 +260,12 @@ func (srv *Server) Connections() {
 		select {
 		case s := <-srv.LoginChan:
 			srv.Mu.Lock()
+			if srv.Clients[s.Name] != nil {
+				m := models.Message{}
+				m.Status = true
+				srv.Clients[s.Name] <- m
+			}
+
 			srv.Clients[s.Name] = s.Channel
 			srv.Mu.Unlock()
 		case s := <-srv.LogoutChan:
