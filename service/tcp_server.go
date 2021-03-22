@@ -8,7 +8,7 @@ import (
 
 func (srv *Server) TcpServer(addr string) {
 
-	l, err := net.Listen("tcp", "localhost:"+addr)
+	l, err := net.Listen("tcp", ":"+addr)
 	if err != nil {
 		log.Fatal(err)
 	}

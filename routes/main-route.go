@@ -21,7 +21,7 @@ func Route(srv *service.Server) {
 	http.Handle("/", r)
 	httpPort := os.Getenv("HTTPPORT")
 	log.Println("Starting http server on", httpPort)
-	log.Fatal(http.ListenAndServe("localhost:"+httpPort, nil))
+	log.Fatal(http.ListenAndServe(":"+httpPort, nil))
 }
 
 func Chat(w http.ResponseWriter, _ *http.Request) {

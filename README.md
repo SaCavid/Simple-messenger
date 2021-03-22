@@ -2,7 +2,7 @@
 
 Simple messenger golang app.
 
-Small Html, Bootstrap, Jquery chat app created for testing.
+Small Html, Bootstrap, Jquery chat app created for testing. ~16 hour lost for all code.
 
 App starting Tcp, Tls, Http server.
 Port numbers and other configuration can be changed in env file:
